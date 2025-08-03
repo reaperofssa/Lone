@@ -1,0 +1,15 @@
+{
+  "images": [
+    { "path": "lwf.png", "x": 300, "y": 40 },
+    { "path": "rb.png", "x": 836, "y": 370 },
+    { "path": "cb2.png", "x": 706, "y": 420 },
+    { "path": "rwf.png", "x": 836, "y": 40 },
+    { "path": "cf.png", "x": 568, "y": 15 },
+    { "path": "lb.png", "x": 300, "y": 370 },
+    { "path": "cb1.png", "x": 435, "y": 420 },
+    { "path": "amf1.png", "x": 430, "y": 170 },
+    { "path": "dmf.png", "x": 568, "y": 300 },
+    { "path": "amf2.png", "x": 706, "y": 170 },
+    { "path": "gk.png", "x": 570, "y": 460 }
+  ]
+}
