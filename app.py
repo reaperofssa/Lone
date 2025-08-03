@@ -127,6 +127,34 @@ def validate_image_url(url):
         
     except Exception:
         return False
+
+def download_images_parallel(url_params, request_id):
+    """Download multiple images in parallel with format validation"""
+    downloaded_images = {}
+    
+    # First, validate all URLs
+    valid_urls = {}
+    for key, url in url_params.items():
+        if validate_image_url(url):
+            valid_urls[key] = url
+        else:
+            print(f"[{request_id}] Skipping invalid URL for {key}: {url}")
+    
+    def download_single(key_url_pair):
+        key, url = key_url_pair
+        print(f"[{request_id}] Downloading {key} from {url}")
+        img = download_image(url, request_id)
+        return key, img
+    
+    # Use ThreadPoolExecutor for parallel downloads
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = executor.map(download_single, valid_urls.items())
+        
+        for key, img in results:
+            if img is not None:
+                downloaded_images[key] = img
+    
+    return downloaded_images
     """Download multiple images in parallel"""
     downloaded_images = {}
     
@@ -310,4 +338,4 @@ def info():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=7860)
+    app.run(debug=True, host='0.0.0.0', port=5000)
