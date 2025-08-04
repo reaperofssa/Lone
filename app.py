@@ -379,8 +379,8 @@ def overlay_image():
             print(f"[{request_id}] Failed to process overlay: {e}")
             return jsonify({"error": f"Failed to process overlay image: {str(e)}"}), 500
 
-        # Slightly enlarge overlay
-        scale_factor = 1.3
+        # Reduce overlay size
+        scale_factor = 0.7  # Reduced from 1.3 to 0.7 to make overlay smaller
         new_size = (int(overlay_img.width * scale_factor), int(overlay_img.height * scale_factor))
         overlay_img = overlay_img.resize(new_size, Image.LANCZOS)
 
