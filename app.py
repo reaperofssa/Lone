@@ -3,6 +3,7 @@ import json
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import io
+from io import BytesIO
 import os
 import uuid
 import tempfile
