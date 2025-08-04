@@ -322,7 +322,7 @@ def generate_image():
 def health_check():
     return jsonify({"status": "healthy", "message": "API is running"})
 
-BANNER_URL = "https://files.catbox.moe/wn4cbr.jpeg"
+BANNER_URL = "https://files.catbox.moe/0meps6.png"
 
 @app.route("/vimage", methods=["GET"])
 def overlay_image():
@@ -380,7 +380,7 @@ def overlay_image():
             return jsonify({"error": f"Failed to process overlay image: {str(e)}"}), 500
 
         # Reduce overlay size
-        scale_factor = 0.9  # Reduced from 1.3 to 0.7 to make overlay smaller
+        scale_factor = 0.8  # Reduced from 1.3 to 0.7 to make overlay smaller
         new_size = (int(overlay_img.width * scale_factor), int(overlay_img.height * scale_factor))
         overlay_img = overlay_img.resize(new_size, Image.LANCZOS)
 
