@@ -1,7 +1,7 @@
 from flask import Flask, request, send_file, jsonify
 import json
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import io
 import os
 import uuid
@@ -9,7 +9,6 @@ import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
-
 app = Flask(__name__)
 
 # Thread-local storage for request isolation
@@ -321,6 +320,47 @@ def generate_image():
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy", "message": "API is running"})
+
+BANNER_URL = "https://files.catbox.moe/wn4cbr.jpeg"
+
+@app.route("/vimage", methods=["GET"])
+def overlay_image():
+    overlay_url = request.args.get("img")  # Only overlay is passed
+    if not overlay_url:
+        return {"error": "Missing 'img' parameter"}, 400
+
+    try:
+        # Download banner and overlay
+        base_img = Image.open(BytesIO(requests.get(BANNER_URL).content)).convert("RGBA")
+        overlay_img = Image.open(BytesIO(requests.get(overlay_url).content)).convert("RGBA")
+
+        # Slightly enlarge overlay
+        scale_factor = 1.3
+        new_size = (int(overlay_img.width * scale_factor), int(overlay_img.height * scale_factor))
+        overlay_img = overlay_img.resize(new_size, Image.LANCZOS)
+
+        # Create blue-tinted glow
+        glow = overlay_img.copy()
+        blue_layer = Image.new("RGBA", glow.size, (0, 0, 255, 180))  # Blue with alpha
+        glow = Image.alpha_composite(glow, blue_layer)
+        glow = glow.filter(ImageFilter.GaussianBlur(30))  # Stronger blur for glow
+
+        # Compute position (center)
+        x = (base_img.width - overlay_img.width) // 2
+        y = (base_img.height - overlay_img.height) // 2
+
+        # Paste glow then overlay
+        base_img.paste(glow, (x, y), glow)
+        base_img.paste(overlay_img, (x, y), overlay_img)
+
+        # Save to temp file
+        temp_path = tempfile.mktemp(suffix=".png")
+        base_img.save(temp_path, "PNG")
+
+        return send_file(temp_path, mimetype="image/png", as_attachment=True, download_name="output.png")
+
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 @app.route('/', methods=['GET'])
 def info():
