@@ -328,12 +328,56 @@ BANNER_URL = "https://files.catbox.moe/wn4cbr.jpeg"
 def overlay_image():
     overlay_url = request.args.get("img")  # Only overlay is passed
     if not overlay_url:
-        return {"error": "Missing 'img' parameter"}, 400
+        return jsonify({"error": "Missing 'img' parameter"}), 400
 
+    # Generate unique request ID for logging
+    request_id = str(uuid.uuid4())[:8]
+    temp_path = None
+    
     try:
-        # Download banner and overlay
-        base_img = Image.open(BytesIO(requests.get(BANNER_URL).content)).convert("RGBA")
-        overlay_img = Image.open(BytesIO(requests.get(overlay_url).content)).convert("RGBA")
+        print(f"[{request_id}] Starting vimage generation with overlay: {overlay_url}")
+        
+        # Validate URLs
+        if not validate_image_url(overlay_url):
+            return jsonify({"error": "Invalid overlay image URL"}), 400
+        
+        # Headers to mimic real browser request
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+        
+        # Download banner image with better error handling
+        print(f"[{request_id}] Downloading banner from: {BANNER_URL}")
+        try:
+            banner_response = requests.get(BANNER_URL, timeout=15, headers=headers, stream=True)
+            banner_response.raise_for_status()
+            base_img = Image.open(BytesIO(banner_response.content)).convert("RGBA")
+            print(f"[{request_id}] Banner downloaded successfully")
+        except requests.exceptions.RequestException as e:
+            print(f"[{request_id}] Failed to download banner: {e}")
+            return jsonify({"error": f"Failed to download banner image: {str(e)}"}), 500
+        except Exception as e:
+            print(f"[{request_id}] Failed to process banner: {e}")
+            return jsonify({"error": f"Failed to process banner image: {str(e)}"}), 500
+
+        # Download overlay image with better error handling
+        print(f"[{request_id}] Downloading overlay from: {overlay_url}")
+        try:
+            overlay_response = requests.get(overlay_url, timeout=15, headers=headers, stream=True)
+            overlay_response.raise_for_status()
+            overlay_img = Image.open(BytesIO(overlay_response.content)).convert("RGBA")
+            print(f"[{request_id}] Overlay downloaded successfully")
+        except requests.exceptions.RequestException as e:
+            print(f"[{request_id}] Failed to download overlay: {e}")
+            return jsonify({"error": f"Failed to download overlay image: {str(e)}"}), 500
+        except Exception as e:
+            print(f"[{request_id}] Failed to process overlay: {e}")
+            return jsonify({"error": f"Failed to process overlay image: {str(e)}"}), 500
 
         # Slightly enlarge overlay
         scale_factor = 1.3
@@ -354,14 +398,54 @@ def overlay_image():
         base_img.paste(glow, (x, y), glow)
         base_img.paste(overlay_img, (x, y), overlay_img)
 
-        # Save to temp file
+        # Create temp file with proper cleanup
         temp_path = tempfile.mktemp(suffix=".png")
         base_img.save(temp_path, "PNG")
+        
+        print(f"[{request_id}] Image processing completed successfully")
 
-        return send_file(temp_path, mimetype="image/png", as_attachment=True, download_name="output.png")
+        # Use a custom response that handles file cleanup
+        def remove_file(response):
+            try:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except:
+                pass
+            return response
+
+        response = send_file(
+            temp_path, 
+            mimetype="image/png", 
+            as_attachment=False,  # Changed to False for better browser compatibility
+            download_name="vimage_output.png"
+        )
+        
+        # Schedule file cleanup after response is sent
+        @response.call_on_close
+        def cleanup():
+            try:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+                    print(f"[{request_id}] Temporary file cleaned up")
+            except Exception as e:
+                print(f"[{request_id}] Error cleaning up temp file: {e}")
+        
+        return response
 
     except Exception as e:
-        return {"error": str(e)}, 500
+        print(f"[{request_id}] Unexpected error in vimage route: {str(e)}")
+        
+        # Clean up temp file in case of error
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+        
+        return jsonify({
+            "error": f"An error occurred: {str(e)}", 
+            "request_id": request_id
+        }), 500
 
 @app.route('/', methods=['GET'])
 def info():
